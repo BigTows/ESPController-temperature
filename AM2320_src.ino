@@ -8,15 +8,14 @@
 #include <Hash.h>
 
 // WiFi credentials
-const char* ssid = "SSID";
+const char* ssid = "ssid";
 const char* password = "password";
 
-String host = "http://127.0.0.1";
+String host = "http://127.0.0.1:8080";
 
 //Setting of ESP System
 int idDevice = 1; //Identity in system
 String secretToken = "token"; //Secret token
-
 Adafruit_AM2320 am2320 = Adafruit_AM2320();
 
 // current temperature & humidity, updated in loop()
@@ -26,8 +25,8 @@ float t = 0.0;
 // The value will quickly become too large for an int to store
 unsigned long previousMillis = 0;    // will store last time DHT was updated
 
-// Updates DHT readings every 5 minutes
-const long interval = 1000 * 60 * 5;
+// Updates DHT readings every 1 minutes
+const long interval = 1000 * 60;
 
 void setup() {
   // Serial port for debugging purposes
@@ -57,20 +56,21 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval) {
+  if (previousMillis == 0 || currentMillis - previousMillis >= interval) {
 
     previousMillis = currentMillis;
     float newT = am2320.readTemperature();
     if (!isnan(newT)) {
       t = newT;
     }
+    String privateKey = getPrivateKey(idDevice,secretToken,getSessionKey(idDevice,secretToken));
     HTTPClient http;    //Declare object of class HTTPClient
     String Link;
-    String hash = sha1(sha1(String(idDevice)) + sha1(String(secretToken)) + sha1(String(t)));
+    String hash = sha1(sha1(String(idDevice)) + sha1(String(secretToken)) + sha1(String(t)) + sha1(privateKey));
 
     String data = "?id=" + String(idDevice) + "&temperature=" + String(t) + "&signature=" + hash;
     Link = host+"/api/v1/temperature" + data;
-
+    
     http.begin(Link);     //Specify request destination
 
     int httpCode = http.GET();            //Send the request
@@ -80,4 +80,39 @@ void loop() {
     Serial.println(payload);    //Print request response payload
     http.end();  //Close connection
   }
+}
+
+
+String getSessionKey(int idDevice, String password){
+   HTTPClient http;    //Declare object of class HTTPClient
+    String Link;
+    String hash = sha1(sha1(String(idDevice)) + sha1(String(password)));
+
+    String data = "?id=" + String(idDevice) + "&signature=" + hash;
+    Link = host+"/api/v1/session" + data;
+
+    http.begin(Link);     //Specify request destination
+
+    int httpCode = http.GET();            //Send the request
+    String response = http.getString();    //Get the response payload
+    http.end();
+    Serial.println("SESSION::"+response);
+    return response;
+}
+
+String getPrivateKey(int idDevice, String password, String sessionKey){
+    HTTPClient http;    //Declare object of class HTTPClient
+    String Link;
+    String hash = sha1(sha1(String(idDevice)) +sha1(String(sessionKey))+ sha1(String(password)));
+
+    String data = "?id=" + String(idDevice)+"&sessionKey=" + sessionKey + "&signature=" + hash;
+    Link = host+"/api/v1/privateKey" + data;
+
+    http.begin(Link);     //Specify request destination
+
+    int httpCode = http.GET();            //Send the request
+    String response = http.getString();    //Get the response payload
+    http.end();
+    Serial.println("PRIVATE::"+response);
+   return response;
 }
