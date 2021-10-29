@@ -67,11 +67,14 @@ void loop() {
     if (!isnan(newT)) {
       t = newT;
     }
+    
+  
     HTTPClient http;    //Declare object of class HTTPClient
     String Link;
-    String hash = sha1(sha1(String(idDevice)) + sha1(String(secretToken)) + sha1(String(t)));
+    String timestamp = getCurrentTime();
+    String hash = sha1(sha1(String(idDevice)) + "&" +sha1(String(timestamp))+ "&" + sha1(String(t))+ "&" + sha1(String(secretToken)));
 
-    String data = "?id=" + String(idDevice) + "&temperature=" + String(t) + "&signature=" + hash;
+    String data = "?id=" + String(idDevice) +"&timestamp="+timestamp+ "&temperature=" + String(t) + "&signature=" + hash;
     Link = host+"/api/v1/temperature" + data;
 
     http.begin(Link);     //Specify request destination
@@ -83,4 +86,15 @@ void loop() {
     Serial.println(payload);    //Print request response payload
     http.end();  //Close connection
   }
+}
+
+
+
+String getCurrentTime(){
+     HTTPClient http;
+     String Link = host+"/api/v1/timestamp";
+     http.begin(Link);
+
+    int httpCode = http.GET();
+    return http.getString();
 }
